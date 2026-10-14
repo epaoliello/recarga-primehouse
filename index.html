@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recarga Prime House</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sinalização de garagem — faixa de resumo, grade de dias em cartões, cadastro abaixo */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --line: #d3d9e0;
+  --fg: #18202a;
+  --muted: #5d6875;
+  --accent: #1d5fd1;
+  --accent-soft: #e2ebfb;
+  --night: #3d3f8f;
+  --night-soft: #e9e8f6;
+  --warn: #a35a00;
+  --warn-soft: #fbefdc;
+  --bad: #b3261e;
+  --ok: #1f7a4a;
+  --plate-band: #1b4aa6;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #1a2129; --line: #2e3843; --fg: #e6ebf0; --muted: #9aa6b3;
+    --accent: #6ea0ff; --accent-soft: #1d2b44; --night: #a9a7ff; --night-soft: #23234a;
+    --warn: #f0b056; --warn-soft: #3a2a12; --bad: #ff8a80; --ok: #6fd39d; --plate-band: #2a5cc4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #1a2129; --line: #2e3843; --fg: #e6ebf0; --muted: #9aa6b3;
+  --accent: #6ea0ff; --accent-soft: #1d2b44; --night: #a9a7ff; --night-soft: #23234a;
+  --warn: #f0b056; --warn-soft: #3a2a12; --bad: #ff8a80; --ok: #6fd39d; --plate-band: #2a5cc4;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; line-height: 1; }
+h2 { font-size: 24px; font-weight: 600; }
+.eyebrow { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .12em; font-size: 13px; color: var(--muted); font-weight: 600; }
+header { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justify-content: space-between; }
+header .titles { display: grid; gap: 6px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: 600 15px var(--f-body); border-radius: 6px; padding: 9px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+:root[data-theme="dark"] button.primary { color: #0d1420; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.primary { color: #0d1420; } }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.notice { padding: 10px 14px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-weight: 500; }
+.notice[hidden] { display: none; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; display: grid; gap: 2px; }
+.stat b { font-family: var(--f-display); font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat.alert b { color: var(--warn); }
+
+.how { color: var(--muted); max-width: 70ch; margin: 0; }
+
+.days { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; }
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.day h3 { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.charger { display: grid; gap: 6px; }
+.charger-head { display: flex; align-items: baseline; gap: 8px; }
+.charger-head .tag { font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; background: var(--fg); color: var(--surface); padding: 1px 7px; border-radius: 3px; }
+.charger-head small { color: var(--muted); font-size: 13px; }
+
+.slot { display: grid; grid-template-columns: 92px 58px 1fr; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.slot.night { background: var(--night-soft); border-color: transparent; }
+.slot .time { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; line-height: 1.2; }
+.slot .time small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+.slot.night .time small { color: var(--night); }
+.slot input { width: 58px; font: 600 16px var(--f-mono); text-align: center; padding: 6px 4px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.slot input.err { border-color: var(--bad); color: var(--bad); }
+.slot input:read-only { background: transparent; }
+.who { min-width: 0; display: grid; gap: 1px; font-size: 14px; line-height: 1.25; }
+.who .name { font-weight: 600; overflow-wrap: anywhere; }
+.who .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.who .free { color: var(--muted); font-style: italic; }
+.who .error { color: var(--bad); font-weight: 500; }
+
+.plate { display: inline-flex; flex-direction: column; border: 1px solid var(--fg); border-radius: 3px; overflow: hidden; font: 500 11px/1 var(--f-mono); letter-spacing: .06em; background: #fff; color: #111; }
+.plate::before { content: "BRASIL"; font: 700 6px/1 var(--f-body); letter-spacing: .2em; background: var(--plate-band); color: #fff; text-align: center; padding: 1px 0; }
+.plate span { padding: 2px 5px; }
+
+section.cad { display: grid; gap: 12px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .08em; font-size: 13px; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.num { font: 600 15px var(--f-mono); }
+td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+.pill.none { background: var(--warn-soft); color: var(--warn); }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 6px; font-weight: 500; max-width: calc(100% - 32px); }
+@media (max-width: 420px) {
+  .slot { grid-template-columns: 78px 52px 1fr; gap: 8px; }
+  .slot input { width: 52px; }
+}
+@media (prefers-reduced-motion: no-preference) { .slot { transition: background-color .2s; } }
+</style>
+<style>
+[hidden] { display: none !important; }
+.lockbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 8px; background: var(--surface); margin: 0; }
+.lockbar.on { border-style: solid; border-color: var(--ok); }
+.lockbar span { flex: 1 1 260px; color: var(--muted); font-weight: 500; }
+.lockbar.on span { color: var(--ok); }
+.lockbar input, .veh-form input { font: 500 15px var(--f-body); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); min-width: 0; }
+.cad-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.veh-form { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+.veh-form h3 { font-size: 20px; }
+.veh-form .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 12px; }
+.veh-form label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+button.small { padding: 4px 10px; font-size: 13px; }
+button.danger { border-color: var(--bad); color: var(--bad); }
+.acts { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="titles">
+      <span class="eyebrow">Condomínio Prime House · Garagem</span>
+      <h1>Cronograma de recarga</h1>
+    </div>
+    <div class="actions">
+      <button id="btn-xlsx" type="button" class="primary">Exportar Excel</button>
+      <button id="btn-pdf" type="button">Exportar PDF</button>
+    </div>
+  </header>
+
+  <form class="lockbar" id="lockbar">
+    <span id="lock-state">Somente leitura. Para alterar reservas ou veículos, digite a senha.</span>
+    <input id="senha" type="password" placeholder="Senha" autocomplete="current-password" aria-label="Senha de edição">
+    <button type="submit" class="primary" id="btn-entrar">Liberar edição</button>
+    <button type="button" id="btn-sair" hidden>Sair do modo edição</button>
+  </form>
+
+  <p id="notice" class="notice" hidden></p>
+
+  <div class="stats">
+    <div class="stat"><b id="st-occ">–</b><span>horários reservados na semana</span></div>
+    <div class="stat"><b id="st-c1">–</b><span>Carregador 1 (subsolo -3)</span></div>
+    <div class="stat"><b id="st-c2">–</b><span>Carregador 2 (subsolo -2)</span></div>
+    <div class="stat" id="st-none-box"><b id="st-none">–</b><span>veículos sem horário</span></div>
+  </div>
+
+  <p class="how">Digite o número do veículo no horário desejado: morador, apartamento, placa e modelo aparecem na hora. Apague o número para liberar o horário. Alterar exige a senha; as mudanças ficam salvas para todos que abrirem esta página.</p>
+
+  <div class="days" id="days"></div>
+
+  <section class="cad">
+    <div class="cad-head">
+      <h2>Veículos cadastrados</h2>
+      <button type="button" id="btn-add" class="primary" hidden>Adicionar veículo</button>
+    </div>
+    <form id="veh-form" class="veh-form" hidden>
+      <h3 id="veh-form-title">Novo veículo</h3>
+      <div class="fields">
+        <label for="f-numero">Nº<input id="f-numero" inputmode="numeric" maxlength="3" required></label>
+        <label for="f-proprietario">Morador<input id="f-proprietario" required></label>
+        <label for="f-apartamento">Apartamento<input id="f-apartamento" placeholder="ex.: 1201-T2" required></label>
+        <label for="f-modelo">Veículo<input id="f-modelo" placeholder="ex.: BYD Dolphin" required></label>
+        <label for="f-placa">Placa<input id="f-placa" maxlength="8" placeholder="ex.: ABC1D23" required></label>
+        <label for="f-potencia">Potência (kW)<input id="f-potencia" inputmode="decimal" placeholder="ex.: 6,6"></label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="primary" id="f-salvar">Salvar veículo</button>
+        <button type="button" id="f-cancelar">Cancelar</button>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nº</th><th>Morador</th><th>Apto</th><th>Veículo</th><th>Placa</th><th>Potência</th><th>Horários</th><th>Horas/semana</th><th id="th-acoes" hidden></th></tr></thead>
+        <tbody id="veh-body"><tr><td colspan="8" style="color:var(--muted)">Carregando cadastro…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(function () {
+  const DAYS = [
+    ["seg", "Segunda"], ["ter", "Terça"], ["qua", "Quarta"], ["qui", "Quinta"],
+    ["sex", "Sexta"], ["sab", "Sábado"], ["dom", "Domingo"]
+  ];
+  const FOUR = [["06:00", "11:20", 320], ["11:20", "16:40", 320], ["16:40", "22:00", 320], ["22:00", "06:00", 480]];
+  const THREE = [["06:00", "14:00", 480], ["14:00", "22:00", 480], ["22:00", "06:00", 480]];
+  const CHARGERS = [
+    { id: "c1", name: "Carregador 1", floor: "subsolo -3", label: "Carregador 1 (-3)" },
+    { id: "c2", name: "Carregador 2", floor: "subsolo -2", label: "Carregador 2 (-2)" }
+  ];
+  // Mesma grade do Codigo.gs: Carregador 1 com 4 horários na segunda e na quinta.
+  function slotsFor(day, ch) {
+    if (ch === "c2") return FOUR;
+    return (day === "seg" || day === "qui") ? FOUR : THREE;
+  }
+  const ALL = [];
+  DAYS.forEach(([d, dn]) => CHARGERS.forEach(c => slotsFor(d, c.id).forEach((s, i) =>
+    ALL.push({ id: `${d}-${c.id}-${i}`, day: d, dayName: dn, ch: c, start: s[0], end: s[1], mins: s[2], night: s[0] === "22:00" }))));
+
+  const state = { veiculos: new Map(), reservas: new Map(), loaded: false };
+  const $ = id => document.getElementById(id);
+  const dur = m => `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, "0") : ""}`;
+  const fmtH = m => (m / 60).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+  let toastT;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3200);
+  }
+  function notice(msg) { const n = $("notice"); n.textContent = msg || ""; n.hidden = !msg; }
+
+  // Chamada ao Codigo.gs como Promise.
+  // Endereço do app do Apps Script que guarda os dados na planilha.
+  const API = "https://script.google.com/macros/s/AKfycbynVrVlPm5mHSdGLbXuzh5j7sUwDRwZU3OP57ayxWuATbIsosLECe8spRwTVF9mLwuj/exec";
+  async function server(fn, ...args) {
+    let res;
+    try {
+      res = fn === "getDados"
+        ? await fetch(API + "?api=dados&t=" + Date.now(), { cache: "no-store" })
+        // text/plain evita a checagem prévia de CORS, que o Apps Script não responde.
+        : await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ acao: fn, args }) });
+    } catch (_) { throw new Error("Sem conexão com a planilha. Verifique a internet e tente de novo."); }
+    let j;
+    try { j = await res.json(); } catch (_) { throw new Error("A planilha não respondeu como esperado. Tente de novo em instantes."); }
+    if (!j.ok) throw new Error(j.erro || "Algo deu errado. Tente de novo.");
+    return j.dados;
+  }
+  function msg(e) { return String((e && e.message) || "Algo deu errado. Tente de novo.").replace(/^Error:\s*/, ""); }
+
+  // ---------- modo edição ----------
+  const SS_KEY = "recarga-senha";
+  state.senha = (() => { try { return sessionStorage.getItem(SS_KEY) || ""; } catch (_) { return ""; } })();
+  const editMode = () => !!state.senha;
+  function setSenha(s) {
+    state.senha = s;
+    try { s ? sessionStorage.setItem(SS_KEY, s) : sessionStorage.removeItem(SS_KEY); } catch (_) {}
+    renderLock(); renderAll();
+  }
+  // Se o servidor recusar a senha guardada, volta para somente leitura.
+  function authFail(e) { if (/Senha incorreta/.test(msg(e))) setSenha(""); }
+  function renderLock() {
+    const on = editMode();
+    $("lock-state").textContent = on
+      ? "Edição liberada. Você pode alterar reservas e veículos."
+      : "Somente leitura. Para alterar reservas ou veículos, digite a senha.";
+    $("senha").hidden = on; $("btn-entrar").hidden = on; $("btn-sair").hidden = !on;
+    $("lockbar").classList.toggle("on", on);
+    $("btn-add").hidden = !on; $("th-acoes").hidden = !on;
+    if (!on) closeForm();
+  }
+  $("lockbar").addEventListener("submit", async e => {
+    e.preventDefault();
+    const s = $("senha").value; if (!s) return;
+    $("btn-entrar").disabled = true;
+    try { await server("entrar", s); $("senha").value = ""; setSenha(s); toast("Edição liberada"); }
+    catch (err) { toast(msg(err)); }
+    finally { $("btn-entrar").disabled = false; }
+  });
+  $("btn-sair").addEventListener("click", () => { setSenha(""); toast("Modo edição encerrado"); });
+
+  // ---------- cadastro de veículos ----------
+  let editing = null; // número original do veículo em edição; null = novo
+  function nextNum() { return String(Math.max(0, ...[...state.veiculos.keys()].map(Number)) + 1); }
+  function openForm(v) {
+    editing = v ? v.numero : null;
+    $("veh-form-title").textContent = v ? `Editar veículo ${v.numero}` : "Novo veículo";
+    const set = (k, val) => { $("f-" + k).value = val == null ? "" : val; };
+    set("numero", v ? v.numero : nextNum());
+    set("proprietario", v && v.proprietario); set("apartamento", v && v.apartamento);
+    set("modelo", v && v.modelo); set("placa", v && v.placa);
+    set("potencia", v && v.potencia != null ? String(v.potencia).replace(".", ",") : "");
+    $("veh-form").hidden = false; $("f-proprietario").focus();
+  }
+  function closeForm() { $("veh-form").hidden = true; editing = null; }
+  $("btn-add").addEventListener("click", () => openForm(null));
+  $("f-cancelar").addEventListener("click", closeForm);
+  $("veh-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const g = k => $("f-" + k).value.trim();
+    const v = { numero: g("numero"), proprietario: g("proprietario"), apartamento: g("apartamento"),
+      modelo: g("modelo"), placa: g("placa").toUpperCase(), potencia: g("potencia") };
+    if (!/^\d{1,3}$/.test(v.numero)) { toast("O número do veículo deve ter só dígitos."); return; }
+    if (v.numero !== editing && state.veiculos.has(v.numero)) { toast(`O número ${v.numero} já é de outro veículo.`); return; }
+    const eraEdicao = editing !== null;
+    $("f-salvar").disabled = true;
+    try {
+      applyData(await server("salvarVeiculo", v, editing, state.senha));
+      toast(eraEdicao ? "Veículo atualizado" : "Veículo adicionado"); closeForm();
+    } catch (err) { toast(msg(err)); authFail(err); }
+    finally { $("f-salvar").disabled = false; }
+  });
+  function smallBtn(text, fn) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "small";
+    b.textContent = text; b.addEventListener("click", fn); return b;
+  }
+  function actionsCell(v, us) {
+    const td = document.createElement("td"); const box = document.createElement("div"); box.className = "acts";
+    const br = smallBtn("Remover", async () => {
+      // Primeiro clique pede confirmação; o segundo remove.
+      if (br.dataset.armed !== "1") {
+        br.dataset.armed = "1"; br.classList.add("danger");
+        br.textContent = us ? `Remover e liberar ${us.n} horário${us.n > 1 ? "s" : ""}?` : "Confirmar remoção";
+        setTimeout(() => { if (br.isConnected) { br.dataset.armed = ""; br.classList.remove("danger"); br.textContent = "Remover"; } }, 4000);
+        return;
+      }
+      br.disabled = true;
+      try { applyData(await server("removerVeiculo", v.numero, state.senha)); toast(`Veículo ${v.numero} removido`); if (editing === v.numero) closeForm(); }
+      catch (err) { toast(msg(err)); authFail(err); br.disabled = false; }
+    });
+    box.append(smallBtn("Editar", () => openForm(v)), br); td.append(box); return td;
+  }
+
+  // ---------- grade ----------
+  const cells = new Map();
+  function buildGrid() {
+    const root = $("days");
+    DAYS.forEach(([d, dn]) => {
+      const card = document.createElement("article"); card.className = "day";
+      const h = document.createElement("h3"); h.textContent = dn; card.append(h);
+      CHARGERS.forEach(c => {
+        const box = document.createElement("div"); box.className = "charger";
+        box.innerHTML = `<div class="charger-head"><span class="tag">${c.name}</span><small>${c.floor}</small></div>`;
+        ALL.filter(s => s.day === d && s.ch.id === c.id).forEach(s => {
+          const row = document.createElement("div"); row.className = "slot" + (s.night ? " night" : "");
+          const time = document.createElement("div"); time.className = "time";
+          time.innerHTML = `${s.start}–${s.end}<small>${dur(s.mins)}${s.night ? " · noturno" : ""}</small>`;
+          const inp = document.createElement("input");
+          inp.id = "in-" + s.id; inp.inputMode = "numeric"; inp.autocomplete = "off"; inp.maxLength = 3;
+          inp.setAttribute("aria-label", `Nº do veículo — ${dn}, ${c.name}, ${s.start} às ${s.end}`);
+          const who = document.createElement("div"); who.className = "who";
+          inp.addEventListener("input", () => { inp.value = inp.value.replace(/\D/g, ""); preview(s.id); });
+          inp.addEventListener("change", () => commit(s.id));
+          inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+          row.append(time, inp, who); box.append(row);
+          cells.set(s.id, { inp, who, row });
+        });
+        card.append(box);
+      });
+      root.append(card);
+    });
+  }
+
+  function plate(text) {
+    const p = document.createElement("span"); p.className = "plate";
+    const s = document.createElement("span"); s.textContent = text; p.append(s); return p;
+  }
+  function paintWho(id, num) {
+    const { who, inp } = cells.get(id);
+    who.replaceChildren(); inp.classList.remove("err");
+    if (num === "" || num == null) {
+      const f = document.createElement("span"); f.className = "free"; f.textContent = "Livre"; who.append(f); return;
+    }
+    const v = state.veiculos.get(String(num));
+    if (!v) {
+      inp.classList.add("err");
+      const e = document.createElement("span"); e.className = "error";
+      e.textContent = state.loaded ? `Veículo ${num} não está cadastrado` : "Carregando cadastro…";
+      who.append(e); return;
+    }
+    const name = document.createElement("span"); name.className = "name"; name.textContent = `${v.proprietario} · ${v.apartamento}`;
+    const meta = document.createElement("span"); meta.className = "meta";
+    const mdl = document.createElement("span"); mdl.textContent = v.modelo;
+    meta.append(plate(v.placa), mdl); who.append(name, meta);
+  }
+  function preview(id) { paintWho(id, cells.get(id).inp.value.trim()); }
+
+  function renderGrid() {
+    ALL.forEach(s => {
+      const c = cells.get(s.id); const num = state.reservas.get(s.id) ?? "";
+      if (document.activeElement !== c.inp) c.inp.value = num;
+      c.inp.readOnly = !editMode();
+      paintWho(s.id, document.activeElement === c.inp ? c.inp.value.trim() : num);
+    });
+  }
+  function usage() {
+    const u = new Map();
+    state.reservas.forEach((num, id) => {
+      const s = ALL.find(x => x.id === id); if (!s) return;
+      const cur = u.get(num) || { n: 0, mins: 0 }; cur.n++; cur.mins += s.mins; u.set(num, cur);
+    });
+    return u;
+  }
+  function renderStats() {
+    const ids = [...state.reservas.keys()].filter(id => ALL.some(s => s.id === id));
+    $("st-occ").textContent = `${ids.length}/${ALL.length}`;
+    $("st-c1").textContent = `${ids.filter(i => i.includes("-c1-")).length}/${ALL.filter(s => s.ch.id === "c1").length}`;
+    $("st-c2").textContent = `${ids.filter(i => i.includes("-c2-")).length}/${ALL.filter(s => s.ch.id === "c2").length}`;
+    const u = usage(); const none = [...state.veiculos.keys()].filter(k => !u.has(k)).length;
+    $("st-none").textContent = state.loaded ? none : "–";
+    $("st-none-box").classList.toggle("alert", none > 0);
+  }
+  function sortedVeh() { return [...state.veiculos.values()].sort((a, b) => Number(a.numero) - Number(b.numero)); }
+  function kw(p) { return p != null ? `${String(p).replace(".", ",")} kW` : "–"; }
+  function renderVehicles() {
+    const body = $("veh-body"); body.replaceChildren();
+    if (!state.veiculos.size) {
+      const tr = document.createElement("tr"); const td = document.createElement("td"); td.colSpan = editMode() ? 9 : 8; td.style.color = "var(--muted)";
+      td.textContent = state.loaded ? "Nenhum veículo cadastrado na aba Veículos." : "Carregando cadastro…";
+      tr.append(td); body.append(tr); return;
+    }
+    const u = usage();
+    sortedVeh().forEach(v => {
+      const tr = document.createElement("tr"); const us = u.get(v.numero);
+      const add = (content, cls) => { const td = document.createElement("td"); if (typeof content === "string") td.textContent = content; else td.append(content); if (cls) td.className = cls; tr.append(td); };
+      add(v.numero, "num"); add(v.proprietario); add(v.apartamento); add(v.modelo); add(plate(v.placa)); add(kw(v.potencia), "r");
+      const pill = document.createElement("span"); pill.className = "pill " + (us ? "ok" : "none");
+      pill.textContent = us ? `${us.n} horário${us.n > 1 ? "s" : ""}` : "Sem horário"; add(pill);
+      add(us ? fmtH(us.mins) + " h" : "–", "r");
+      if (editMode()) tr.append(actionsCell(v, us));
+      body.append(tr);
+    });
+  }
+  function renderAll() { renderGrid(); renderStats(); renderVehicles(); }
+
+  function applyData(d) {
+    state.veiculos = new Map(d.veiculos.map(v => [v.numero, v]));
+    state.reservas = new Map(Object.entries(d.reservas));
+    state.loaded = true; notice(""); renderAll();
+  }
+
+  // ---------- gravação ----------
+  let saving = 0;
+  async function commit(id) {
+    const c = cells.get(id); const val = c.inp.value.trim(); const prev = state.reservas.get(id) ?? "";
+    if (val === prev) return;
+    if (!editMode()) { c.inp.value = prev; preview(id); return; }
+    if (val && !state.veiculos.has(val)) { toast(`O veículo ${val} não está cadastrado. Nada foi salvo.`); return; }
+    saving++; c.inp.disabled = true;
+    try {
+      applyData(await server("reservar", id, val, state.senha));
+      toast(val ? `Reservado para ${state.veiculos.get(val).proprietario}` : "Horário liberado");
+    } catch (e) {
+      toast(msg(e)); authFail(e);
+      c.inp.value = prev; renderAll();
+    } finally { saving--; c.inp.disabled = false; }
+  }
+
+  async function refresh() {
+    if (saving) return;
+    try { applyData(await server("getDados")); }
+    catch (e) { notice(msg(e)); }
+  }
+
+  // ---------- exportação ----------
+  function rows() {
+    return ALL.map(s => {
+      const num = state.reservas.get(s.id) ?? ""; const v = num ? state.veiculos.get(num) : null;
+      return { dia: s.dayName, carregador: s.ch.label, horario: `${s.start}–${s.end}`, duracao: dur(s.mins),
+        num: num ? Number(num) : "", morador: v ? v.proprietario : "", apto: v ? v.apartamento : "", placa: v ? v.placa : "", veiculo: v ? v.modelo : "" };
+    });
+  }
+  function baixar(blob, nome) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = nome;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  function exportXlsx() {
+    if (!window.XLSX) { toast("A biblioteca do Excel não carregou. Recarregue a página."); return; }
+    const r = rows(); const u = usage();
+    const s1 = [["Dia", "Carregador", "Horário", "Duração", "Nº veículo", "Morador", "Apto", "Placa", "Veículo"],
+      ...r.map(x => [x.dia, x.carregador, x.horario, x.duracao, x.num, x.morador, x.apto, x.placa, x.veiculo])];
+    const s2 = [["Nº", "Veículo", "Placa", "Morador", "Apartamento", "Potência (kW)", "Horários na semana", "Horas na semana"],
+      ...sortedVeh().map(v => { const us = u.get(v.numero); return [Number(v.numero), v.modelo, v.placa, v.proprietario, v.apartamento, v.potencia ?? "", us ? us.n : 0, us ? +(us.mins / 60).toFixed(2) : 0]; })];
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(s1); ws1["!cols"] = [10, 18, 13, 9, 10, 22, 10, 10, 20].map(w => ({ wch: w }));
+    const ws2 = XLSX.utils.aoa_to_sheet(s2); ws2["!cols"] = [5, 20, 10, 22, 12, 13, 18, 16].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws1, "Cronograma Semanal");
+    XLSX.utils.book_append_sheet(wb, ws2, "Identificação dos carros");
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    baixar(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Cronograma de Carregamento - Prime House ${stamp()}.xlsx`);
+  }
+  function exportPdf() {
+    if (!window.jspdf || !window.jspdf.jsPDF) { toast("A biblioteca de PDF não carregou. Recarregue a página."); return; }
+    const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+    doc.text("Prime House · Cronograma de recarga de veículos elétricos", 36, 40);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} · Carregador 1 no subsolo -3, Carregador 2 no subsolo -2`, 36, 56);
+    const r = rows();
+    doc.autoTable({
+      startY: 70, margin: { left: 36, right: 36 },
+      head: [["Dia", "Carregador", "Horário", "Duração", "Nº", "Morador", "Apto", "Placa", "Veículo"]],
+      body: r.map(x => [x.dia, x.carregador, x.horario, x.duracao, x.num === "" ? "" : String(x.num), x.morador || "Livre", x.apto, x.placa, x.veiculo]),
+      styles: { font: "helvetica", fontSize: 8.5, cellPadding: 3.5 },
+      headStyles: { fillColor: [29, 95, 209], textColor: 255 },
+      didParseCell: d => { if (d.section === "body" && !r[d.row.index].morador && d.column.index === 5) d.cell.styles.textColor = [140, 140, 140]; }
+    });
+    const u = usage();
+    doc.addPage(); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(0);
+    doc.text("Veículos cadastrados", 36, 40);
+    doc.autoTable({
+      startY: 54, margin: { left: 36, right: 36 },
+      head: [["Nº", "Morador", "Apto", "Veículo", "Placa", "Potência", "Horários", "Horas/semana"]],
+      body: sortedVeh().map(v => { const us = u.get(v.numero); return [v.numero, v.proprietario, v.apartamento, v.modelo, v.placa, kw(v.potencia), us ? String(us.n) : "Sem horário", us ? fmtH(us.mins) : "–"]; }),
+      styles: { font: "helvetica", fontSize: 9, cellPadding: 4 },
+      headStyles: { fillColor: [29, 95, 209], textColor: 255 }
+    });
+    baixar(doc.output("blob"), `Cronograma de Carregamento - Prime House ${stamp()}.pdf`);
+  }
+  $("btn-xlsx").addEventListener("click", exportXlsx);
+  $("btn-pdf").addEventListener("click", exportPdf);
+
+  // ---------- início ----------
+  buildGrid(); renderLock(); renderAll(); refresh();
+  // Busca as reservas de outros moradores a cada 30 segundos, só com a página visível.
+  setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+})();
+</script>
+</body>
+</html>
