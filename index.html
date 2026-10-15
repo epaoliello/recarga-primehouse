@@ -130,18 +130,28 @@ td.r { text-align: right; font-variant-numeric: tabular-nums; }
 button.small { padding: 4px 10px; font-size: 13px; }
 button.danger { border-color: var(--bad); color: var(--bad); }
 .acts { display: flex; gap: 6px; }
+.filterbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.filterbar label { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .08em; font-size: 14px; font-weight: 600; color: var(--muted); }
+.filterbar select { font: 500 15px var(--f-body); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); max-width: 100%; }
+.filterbar .resumo { color: var(--accent); font-weight: 600; }
+.filterbar button { padding: 6px 12px; font-size: 14px; }
+.img-sub { margin: 0; font-weight: 600; color: var(--accent); }
+.days-empty { margin: 0; padding: 18px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+.num-img { display: inline-block; width: 58px; text-align: center; font: 600 16px var(--f-mono); padding: 6px 4px; border-radius: 5px; border: 1px solid var(--line); }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="captura">
   <header>
     <div class="titles">
       <span class="eyebrow">Condomínio Prime House · Garagem</span>
       <h1>Cronograma de recarga</h1>
+      <p id="img-sub" class="img-sub" hidden></p>
     </div>
     <div class="actions">
       <button id="btn-xlsx" type="button" class="primary">Exportar Excel</button>
       <button id="btn-pdf" type="button">Exportar PDF</button>
+      <button id="btn-img" type="button">Exportar imagem</button>
     </div>
   </header>
 
@@ -161,9 +171,17 @@ button.danger { border-color: var(--bad); color: var(--bad); }
     <div class="stat" id="st-none-box"><b id="st-none">–</b><span>veículos sem horário</span></div>
   </div>
 
+  <div class="filterbar">
+    <label for="filtro">Ver horários de</label>
+    <select id="filtro"><option value="">Todos os veículos</option></select>
+    <span id="filtro-resumo" class="resumo"></span>
+    <button type="button" id="btn-limpar" hidden>Mostrar todos</button>
+  </div>
+
   <p class="how">Digite o número do veículo no horário desejado: morador, apartamento, placa e modelo aparecem na hora. Apague o número para liberar o horário. Alterar exige a senha; as mudanças ficam salvas para todos que abrirem esta página.</p>
 
   <div class="days" id="days"></div>
+  <p id="days-empty" class="days-empty" hidden></p>
 
   <section class="cad">
     <div class="cad-head">
@@ -198,6 +216,7 @@ button.danger { border-color: var(--bad); color: var(--bad); }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 (function () {
   const DAYS = [
@@ -316,7 +335,7 @@ button.danger { border-color: var(--bad); color: var(--bad); }
     b.textContent = text; b.addEventListener("click", fn); return b;
   }
   function actionsCell(v, us) {
-    const td = document.createElement("td"); const box = document.createElement("div"); box.className = "acts";
+    const td = document.createElement("td"); td.className = "acts-cell"; const box = document.createElement("div"); box.className = "acts";
     const br = smallBtn("Remover", async () => {
       // Primeiro clique pede confirmação; o segundo remove.
       if (br.dataset.armed !== "1") {
@@ -334,13 +353,16 @@ button.danger { border-color: var(--bad); color: var(--bad); }
 
   // ---------- grade ----------
   const cells = new Map();
+  const blocks = []; // { card, boxes: [{ box, ids }] } por dia, para o filtro
   function buildGrid() {
     const root = $("days");
     DAYS.forEach(([d, dn]) => {
       const card = document.createElement("article"); card.className = "day";
       const h = document.createElement("h3"); h.textContent = dn; card.append(h);
+      const dayBlock = { card, boxes: [] }; blocks.push(dayBlock);
       CHARGERS.forEach(c => {
         const box = document.createElement("div"); box.className = "charger";
+        dayBlock.boxes.push({ box, ids: ALL.filter(s => s.day === d && s.ch.id === c.id).map(s => s.id) });
         box.innerHTML = `<div class="charger-head"><span class="tag">${c.name}</span><small>${c.floor}</small></div>`;
         ALL.filter(s => s.day === d && s.ch.id === c.id).forEach(s => {
           const row = document.createElement("div"); row.className = "slot" + (s.night ? " night" : "");
@@ -392,8 +414,45 @@ button.danger { border-color: var(--bad); color: var(--bad); }
       if (document.activeElement !== c.inp) c.inp.value = num;
       c.inp.readOnly = !editMode();
       paintWho(s.id, document.activeElement === c.inp ? c.inp.value.trim() : num);
+      c.row.hidden = !!state.filtro && num !== state.filtro;
     });
+    // Com filtro, esconde carregadores e dias sem horário do veículo.
+    let visiveis = 0;
+    blocks.forEach(b => {
+      let diaTem = false;
+      b.boxes.forEach(x => { const tem = x.ids.some(id => !cells.get(id).row.hidden); x.box.hidden = !tem; diaTem = diaTem || tem; });
+      b.card.hidden = !diaTem; if (diaTem) visiveis++;
+    });
+    const vazio = $("days-empty");
+    vazio.hidden = !(state.filtro && visiveis === 0);
+    if (!vazio.hidden) vazio.textContent = "Este veículo ainda não tem horários reservados.";
   }
+
+  // ---------- filtro por veículo ----------
+  state.filtro = (() => { const m = /^#v(\d{1,3})$/.exec(location.hash || ""); return m ? m[1] : ""; })();
+  const filtroVeiculo = () => state.filtro ? state.veiculos.get(state.filtro) : null;
+  function setFiltro(f) {
+    state.filtro = f;
+    try { history.replaceState(null, "", f ? "#v" + f : location.pathname + location.search); } catch (_) {}
+    renderAll();
+  }
+  function renderFiltro() {
+    const sel = $("filtro");
+    // Veículo removido do cadastro: volta para todos.
+    if (state.loaded && state.filtro && !state.veiculos.has(state.filtro)) state.filtro = "";
+    const opts = [["", "Todos os veículos"], ...sortedVeh().map(v => [v.numero, `${v.numero} · ${v.proprietario} (${v.apartamento})`])];
+    const assinatura = JSON.stringify(opts);
+    if (sel.dataset.sig !== assinatura) {
+      sel.replaceChildren(...opts.map(([val, txt]) => { const o = document.createElement("option"); o.value = val; o.textContent = txt; return o; }));
+      sel.dataset.sig = assinatura;
+    }
+    sel.value = state.filtro;
+    const v = filtroVeiculo(); const us = v ? usage().get(v.numero) : null;
+    $("filtro-resumo").textContent = v ? (us ? `${us.n} horário${us.n > 1 ? "s" : ""} · ${fmtH(us.mins)} h por semana` : "Nenhum horário reservado") : "";
+    $("btn-limpar").hidden = !v;
+  }
+  $("filtro").addEventListener("change", e => setFiltro(e.target.value));
+  $("btn-limpar").addEventListener("click", () => setFiltro(""));
   function usage() {
     const u = new Map();
     state.reservas.forEach((num, id) => {
@@ -421,7 +480,7 @@ button.danger { border-color: var(--bad); color: var(--bad); }
       tr.append(td); body.append(tr); return;
     }
     const u = usage();
-    sortedVeh().forEach(v => {
+    sortedVeh().filter(v => !state.filtro || v.numero === state.filtro).forEach(v => {
       const tr = document.createElement("tr"); const us = u.get(v.numero);
       const add = (content, cls) => { const td = document.createElement("td"); if (typeof content === "string") td.textContent = content; else td.append(content); if (cls) td.className = cls; tr.append(td); };
       add(v.numero, "num"); add(v.proprietario); add(v.apartamento); add(v.modelo); add(plate(v.placa)); add(kw(v.potencia), "r");
@@ -432,7 +491,7 @@ button.danger { border-color: var(--bad); color: var(--bad); }
       body.append(tr);
     });
   }
-  function renderAll() { renderGrid(); renderStats(); renderVehicles(); }
+  function renderAll() { renderFiltro(); renderGrid(); renderStats(); renderVehicles(); }
 
   function applyData(d) {
     state.veiculos = new Map(d.veiculos.map(v => [v.numero, v]));
@@ -464,8 +523,9 @@ button.danger { border-color: var(--bad); color: var(--bad); }
   }
 
   // ---------- exportação ----------
+  // Exportações seguem o filtro: com um veículo escolhido, saem só os horários dele.
   function rows() {
-    return ALL.map(s => {
+    return ALL.filter(s => !state.filtro || state.reservas.get(s.id) === state.filtro).map(s => {
       const num = state.reservas.get(s.id) ?? ""; const v = num ? state.veiculos.get(num) : null;
       return { dia: s.dayName, carregador: s.ch.label, horario: `${s.start}–${s.end}`, duracao: dur(s.mins),
         num: num ? Number(num) : "", morador: v ? v.proprietario : "", apto: v ? v.apartamento : "", placa: v ? v.placa : "", veiculo: v ? v.modelo : "" };
@@ -478,20 +538,53 @@ button.danger { border-color: var(--bad); color: var(--bad); }
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
   const stamp = () => new Date().toISOString().slice(0, 10);
+  const vehShown = () => sortedVeh().filter(v => !state.filtro || v.numero === state.filtro);
+  function nomeArquivo(ext) {
+    const v = filtroVeiculo();
+    return `Cronograma de Carregamento - Prime House${v ? ` - veículo ${v.numero} ${v.proprietario}` : ""} ${stamp()}.${ext}`;
+  }
+  function subtitulo() {
+    const v = filtroVeiculo(); const hoje = new Date().toLocaleDateString("pt-BR");
+    return v ? `Horários de ${v.proprietario} · ${v.apartamento} · ${v.modelo} ${v.placa} · ${hoje}` : `Atualizado em ${hoje}`;
+  }
+  async function exportImg() {
+    if (!window.html2canvas) { toast("A biblioteca de imagem não carregou. Recarregue a página."); return; }
+    const btn = $("btn-img"); btn.disabled = true; toast("Gerando imagem…");
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor;
+      const canvas = await html2canvas($("captura"), {
+        backgroundColor: bg, scale: 2, useCORS: true, windowWidth: 1320,
+        onclone: doc => {
+          // A imagem mostra o cronograma como no site, sem os controles.
+          doc.querySelectorAll(".actions, #lockbar, #notice, .how, .filterbar, #veh-form, #btn-add, #th-acoes, .acts-cell")
+            .forEach(el => el.remove());
+          doc.querySelectorAll(".slot input").forEach(inp => {
+            const s = doc.createElement("span"); s.className = "num-img"; s.textContent = inp.value || "–"; inp.replaceWith(s);
+          });
+          const w = doc.getElementById("captura"); w.style.width = "1280px"; w.style.maxWidth = "none";
+          const sub = doc.getElementById("img-sub"); sub.textContent = subtitulo(); sub.hidden = false;
+        }
+      });
+      const blob = await new Promise(r => canvas.toBlob(r, "image/png"));
+      if (!blob) throw new Error();
+      baixar(blob, nomeArquivo("png"));
+    } catch (_) { toast("Não foi possível gerar a imagem. Tente de novo."); }
+    finally { btn.disabled = false; }
+  }
   function exportXlsx() {
     if (!window.XLSX) { toast("A biblioteca do Excel não carregou. Recarregue a página."); return; }
     const r = rows(); const u = usage();
     const s1 = [["Dia", "Carregador", "Horário", "Duração", "Nº veículo", "Morador", "Apto", "Placa", "Veículo"],
       ...r.map(x => [x.dia, x.carregador, x.horario, x.duracao, x.num, x.morador, x.apto, x.placa, x.veiculo])];
     const s2 = [["Nº", "Veículo", "Placa", "Morador", "Apartamento", "Potência (kW)", "Horários na semana", "Horas na semana"],
-      ...sortedVeh().map(v => { const us = u.get(v.numero); return [Number(v.numero), v.modelo, v.placa, v.proprietario, v.apartamento, v.potencia ?? "", us ? us.n : 0, us ? +(us.mins / 60).toFixed(2) : 0]; })];
+      ...vehShown().map(v => { const us = u.get(v.numero); return [Number(v.numero), v.modelo, v.placa, v.proprietario, v.apartamento, v.potencia ?? "", us ? us.n : 0, us ? +(us.mins / 60).toFixed(2) : 0]; })];
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(s1); ws1["!cols"] = [10, 18, 13, 9, 10, 22, 10, 10, 20].map(w => ({ wch: w }));
     const ws2 = XLSX.utils.aoa_to_sheet(s2); ws2["!cols"] = [5, 20, 10, 22, 12, 13, 18, 16].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws1, "Cronograma Semanal");
     XLSX.utils.book_append_sheet(wb, ws2, "Identificação dos carros");
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    baixar(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Cronograma de Carregamento - Prime House ${stamp()}.xlsx`);
+    baixar(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), nomeArquivo("xlsx"));
   }
   function exportPdf() {
     if (!window.jspdf || !window.jspdf.jsPDF) { toast("A biblioteca de PDF não carregou. Recarregue a página."); return; }
@@ -499,7 +592,7 @@ button.danger { border-color: var(--bad); color: var(--bad); }
     doc.setFont("helvetica", "bold"); doc.setFontSize(16);
     doc.text("Prime House · Cronograma de recarga de veículos elétricos", 36, 40);
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(90);
-    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} · Carregador 1 no subsolo -3, Carregador 2 no subsolo -2`, 36, 56);
+    doc.text(`${subtitulo()} · Carregador 1 no subsolo -3, Carregador 2 no subsolo -2`, 36, 56);
     const r = rows();
     doc.autoTable({
       startY: 70, margin: { left: 36, right: 36 },
@@ -515,14 +608,15 @@ button.danger { border-color: var(--bad); color: var(--bad); }
     doc.autoTable({
       startY: 54, margin: { left: 36, right: 36 },
       head: [["Nº", "Morador", "Apto", "Veículo", "Placa", "Potência", "Horários", "Horas/semana"]],
-      body: sortedVeh().map(v => { const us = u.get(v.numero); return [v.numero, v.proprietario, v.apartamento, v.modelo, v.placa, kw(v.potencia), us ? String(us.n) : "Sem horário", us ? fmtH(us.mins) : "–"]; }),
+      body: vehShown().map(v => { const us = u.get(v.numero); return [v.numero, v.proprietario, v.apartamento, v.modelo, v.placa, kw(v.potencia), us ? String(us.n) : "Sem horário", us ? fmtH(us.mins) : "–"]; }),
       styles: { font: "helvetica", fontSize: 9, cellPadding: 4 },
       headStyles: { fillColor: [29, 95, 209], textColor: 255 }
     });
-    baixar(doc.output("blob"), `Cronograma de Carregamento - Prime House ${stamp()}.pdf`);
+    baixar(doc.output("blob"), nomeArquivo("pdf"));
   }
   $("btn-xlsx").addEventListener("click", exportXlsx);
   $("btn-pdf").addEventListener("click", exportPdf);
+  $("btn-img").addEventListener("click", exportImg);
 
   // ---------- início ----------
   buildGrid(); renderLock(); renderAll(); refresh();
